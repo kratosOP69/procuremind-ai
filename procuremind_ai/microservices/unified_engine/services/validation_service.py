@@ -14,7 +14,7 @@ def validate_invoice(invoice_data, po_data, tolerance_percentage=0.02):
     if inv_vendor != po_vendor and po_vendor:
         discrepancies.append(f"HIGH: Vendor mismatch. Invoice: '{invoice_data.get('vendor_name')}', PO: '{po_data.get('vendor_name')}'")
         
-    po_match = invoice_data.get("purchase_order_number") == po_data.get("po_number") and po_data.get("status") == "Approved"
+    po_match = invoice_data.get("po_number") == po_data.get("po_number") and po_data.get("status") == "Approved"
     if not po_match:
         discrepancies.append(f"HIGH: PO mismatch or not approved.")
         
