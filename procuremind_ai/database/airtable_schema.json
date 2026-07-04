@@ -1,0 +1,65 @@
+{
+  "base_name": "ProcureMind AI Production Base",
+  "tables": [
+    {
+      "name": "Vendors",
+      "description": "Master data for approved vendors",
+      "fields": [
+        { "name": "Vendor ID", "type": "singleLineText" },
+        { "name": "Vendor Name", "type": "singleLineText" },
+        { "name": "Contact Email", "type": "email" },
+        { "name": "IBAN", "type": "singleLineText" }
+      ]
+    },
+    {
+      "name": "Purchase Orders",
+      "description": "Approved purchase orders synced from ERP",
+      "fields": [
+        { "name": "PO Number", "type": "singleLineText" },
+        { "name": "Vendor", "type": "multipleRecordLinks", "options": { "linkedTableId": "Vendors" } },
+        { "name": "Total Amount", "type": "currency", "options": { "precision": 2, "symbol": "$" } },
+        { "name": "Currency", "type": "singleSelect", "options": { "choices": [{ "name": "USD" }, { "name": "EUR" }, { "name": "GBP" }] } },
+        { "name": "Approval Status", "type": "singleSelect", "options": { "choices": [{ "name": "Approved" }, { "name": "Pending" }, { "name": "Cancelled" }] } },
+        { "name": "Approved Line Items", "type": "multilineText", "description": "JSON representation of line items" }
+      ]
+    },
+    {
+      "name": "Invoices",
+      "description": "Invoices ingested and processed by the AI system",
+      "fields": [
+        { "name": "Invoice Number", "type": "singleLineText" },
+        { "name": "Vendor", "type": "multipleRecordLinks", "options": { "linkedTableId": "Vendors" } },
+        { "name": "Purchase Order", "type": "multipleRecordLinks", "options": { "linkedTableId": "Purchase Orders" } },
+        { "name": "Invoice Date", "type": "date", "options": { "dateFormat": { "name": "iso" } } },
+        { "name": "Due Date", "type": "date", "options": { "dateFormat": { "name": "iso" } } },
+        { "name": "Currency", "type": "singleSelect", "options": { "choices": [{ "name": "USD" }, { "name": "EUR" }, { "name": "GBP" }] } },
+        { "name": "Net Amount", "type": "currency", "options": { "precision": 2, "symbol": "$" } },
+        { "name": "Tax Amount", "type": "currency", "options": { "precision": 2, "symbol": "$" } },
+        { "name": "Gross Amount", "type": "currency", "options": { "precision": 2, "symbol": "$" } },
+        { "name": "Line Items", "type": "multilineText", "description": "JSON payload of extracted line items" },
+        { "name": "Status", "type": "singleSelect", "options": { "choices": [{ "name": "Pending", "color": "yellow" }, { "name": "Review Required", "color": "orange" }, { "name": "Approved", "color": "green" }, { "name": "Rejected", "color": "red" }, { "name": "Paid", "color": "blue" }] } },
+        { "name": "Validation Status", "type": "singleSelect", "options": { "choices": [{ "name": "Passed", "color": "green" }, { "name": "Warning", "color": "yellow" }, { "name": "Failed", "color": "red" }] } },
+        { "name": "Fraud Score", "type": "number", "options": { "precision": 0 } },
+        { "name": "Discrepancy Summary", "type": "multilineText" },
+        { "name": "Confidence Score", "type": "percent", "options": { "precision": 1 } },
+        { "name": "Invoice Attachment", "type": "multipleAttachments" },
+        { "name": "Sender Email", "type": "email" },
+        { "name": "Received At", "type": "dateTime", "options": { "dateFormat": { "name": "iso" }, "timeFormat": { "name": "24hour" } } },
+        { "name": "Last Updated", "type": "dateTime", "options": { "dateFormat": { "name": "iso" }, "timeFormat": { "name": "24hour" } } }
+      ]
+    },
+    {
+      "name": "Audit Logs",
+      "description": "Immutable audit trail of all invoice processing events",
+      "fields": [
+        { "name": "Timestamp", "type": "dateTime", "options": { "dateFormat": { "name": "iso" }, "timeFormat": { "name": "24hour" } } },
+        { "name": "Invoice", "type": "multipleRecordLinks", "options": { "linkedTableId": "Invoices" } },
+        { "name": "Action", "type": "singleSelect", "options": { "choices": [{ "name": "Ingested" }, { "name": "Extracted" }, { "name": "Validated" }, { "name": "Review Assigned" }, { "name": "Approved" }, { "name": "Rejected" }, { "name": "Overridden" }] } },
+        { "name": "User/System", "type": "singleLineText" },
+        { "name": "Reason", "type": "multilineText" },
+        { "name": "Previous Value", "type": "multilineText" },
+        { "name": "New Value", "type": "multilineText" }
+      ]
+    }
+  ]
+}

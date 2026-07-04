@@ -1,0 +1,355 @@
+{% extends "base.html" %}
+
+{% block head %}
+<style>
+    .stacked-layout { display: flex; flex-direction: column; gap: 20px; }
+    .doc-viewer { background: #E5E7EB; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; position: relative; min-height: 150px; padding: 20px;}
+    .doc-viewer img { max-width: 100px; max-height: 100px; object-fit: contain; margin-bottom: 10px; transition: transform 0.2s;}
+    .doc-viewer img:hover { transform: scale(1.1); cursor: pointer; }
+    
+    .upload-zone { border: 2px dashed #9CA3AF; padding: 60px; text-align: center; border-radius: 8px; background: white; cursor: pointer; transition: all 0.2s; }
+    .upload-zone:hover, .upload-zone.dragover { border-color: var(--primary); background: #EFF6FF; }
+    
+    .results-area { display: none; margin-top: 20px; }
+    
+    .timeline { border-left: 2px solid var(--border); padding-left: 20px; margin-left: 10px; margin-top: 20px;}
+    .timeline-item { position: relative; margin-bottom: 20px; }
+    .timeline-item::before {
+        content: ''; position: absolute; left: -27px; top: 0; width: 12px; height: 12px;
+        border-radius: 50%; background: var(--primary); border: 2px solid white;
+    }
+    .timeline-item.warning::before { background: var(--warning); }
+    .timeline-item.danger::before { background: var(--danger); }
+    .timeline-item.success::before { background: var(--success); }
+    
+    .confidence-bar-bg { background: #E5E7EB; height: 10px; border-radius: 5px; margin-top: 5px; overflow: hidden; }
+    .confidence-bar-fill { background: var(--success); height: 100%; transition: width 1s ease; }
+    
+    .spinner { margin: 50px auto; width: 40px; height: 40px; border: 4px solid #E5E7EB; border-radius: 50%; border-top-color: var(--primary); animation: spin 1s ease-in-out infinite; display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .clear-btn { background: #F3F4F6; color: var(--text-main); border: 1px solid var(--border); padding: 8px 15px; border-radius: 6px; cursor: pointer; float: right; font-weight: 500;}
+    .clear-btn:hover { background: #E5E7EB; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stacked-layout">
+    <!-- Top Panel: Document Processing -->
+    <div class="panel">
+        <h2 style="margin-top: 0; font-size: 1.2rem; padding-bottom: 10px; border-bottom: 1px solid var(--border);">
+            1. Upload Invoice Document
+        </h2>
+        
+        <div id="uploadSection" class="upload-zone" onclick="document.getElementById('fileInput').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+            <div style="font-size: 3rem; margin-bottom: 10px;">📄</div>
+            <h3>Drag & Drop Invoice Here</h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Supports PDF, PNG, JPG (GPT-4o Vision extraction)</p>
+            <input type="file" id="fileInput" style="display: none;" accept=".pdf, .png, .jpg, .jpeg" onchange="handleFileSelect(event)">
+        </div>
+
+        <div id="loading" class="spinner"></div>
+
+        <div id="docViewer" class="doc-viewer" style="display: none; margin-top: 20px;">
+            <a id="previewLink" href="#" target="_blank" title="Click to view file">
+                <img id="previewImg" src="" alt="Document Preview">
+            </a>
+            <div style="font-size: 0.9rem; font-weight: bold; color: var(--text-muted);">Click icon to view uploaded file</div>
+        </div>
+    </div>
+
+    <!-- Bottom Panel: AI Results & Decision -->
+    <div class="panel" id="resultsPanel" style="display: none;">
+        <button class="clear-btn" onclick="resetUI()">Reset & Upload Another</button>
+        <h2 style="margin-top: 0; font-size: 1.2rem; padding-bottom: 10px; border-bottom: 1px solid var(--border);">2. AI Intelligence Layer</h2>
+        
+        <div id="resultsArea" class="results-area">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase;">Final Decision</div>
+                    <div id="decisionText" style="font-size: 2rem; font-weight: bold;">READY_FOR_PAYMENT</div>
+                </div>
+                <div>
+                    <span id="riskBadge" class="badge badge-success" style="font-size: 1.1rem; padding: 10px 20px;">Low Risk</span>
+                </div>
+            </div>
+
+            <div style="background: #F8FAFC; border: 1px solid var(--border); padding: 15px; border-radius: 8px; margin-bottom: 25px;">
+                <div style="font-weight: 600; margin-bottom: 5px;">Explainable AI Reason</div>
+                <div id="decisionReason" style="font-size: 1rem; color: var(--text-muted);">All checks passed. High confidence.</div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <!-- Column 1: Data & Confidence -->
+                <div>
+                    <h3 style="font-size: 1rem; margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 8px;">Extracted Data</h3>
+                    <div style="border: 1px solid var(--border); padding: 15px; border-radius: 8px; background: #fff; margin-bottom: 20px;">
+                        <div style="font-size: 1.2rem; font-weight: bold;" id="extVendor">Vendor Name</div>
+                        <div style="font-size: 0.95rem; color: var(--text-muted);" id="extInv">INV-123</div>
+                        <div style="font-size: 0.9rem; color: var(--text-muted); margin-top: 5px;">Invoice Date: <strong id="extInvDate">-</strong></div>
+                        <div style="font-size: 0.9rem; color: var(--text-muted);">Due Date: <strong id="extDueDate">-</strong></div>
+                        <div style="font-size: 1.3rem; font-weight: bold; margin-top: 15px; color: var(--success);" id="extAmt">$0.00</div>
+                        <input type="hidden" id="hiddenInvoiceNumber" value="">
+                    </div>
+
+                    <h3 style="font-size: 1rem; margin-bottom: 10px;">Extraction Confidence</h3>
+                    <div style="margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 600;">
+                            <span>GPT-4o Vision</span>
+                            <span id="confText">98%</span>
+                        </div>
+                        <div class="confidence-bar-bg">
+                            <div id="confFill" class="confidence-bar-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Column 2: Audit & Validation -->
+                <div>
+                    <h3 style="font-size: 1rem; margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 8px;">Fraud & Validation Engine</h3>
+                    <div style="border: 1px solid var(--border); padding: 15px; border-radius: 8px; background: #fff; margin-bottom: 20px;">
+                        <div style="font-size: 1rem;">Fraud Score: <strong id="fScore" style="font-size: 1.2rem;">0</strong>/100</div>
+                        <div style="font-size: 1rem; margin-top: 10px;">Validation: <strong id="vStatus">Passed</strong></div>
+                        <div style="font-size: 0.9rem; color: var(--danger); margin-top: 10px;" id="valDiscrepancies"></div>
+                    </div>
+
+                    <h3 style="font-size: 1rem; margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 8px;">Audit Timeline</h3>
+                    <div class="timeline">
+                        <div class="timeline-item success">
+                            <strong>Document Uploaded</strong><br>
+                            <span style="font-size: 0.85rem; color: var(--text-muted);">System received payload</span>
+                        </div>
+                        <div class="timeline-item success">
+                            <strong>AI Extraction Completed</strong><br>
+                            <span style="font-size: 0.85rem; color: var(--text-muted);">OpenAI Vision API processed document</span>
+                        </div>
+                        <div class="timeline-item" id="tlValidation">
+                            <strong>Validation Engine</strong><br>
+                            <span style="font-size: 0.85rem; color: var(--text-muted);" id="tlValText">Rule checks completed</span>
+                        </div>
+                        <div class="timeline-item" id="tlFraud">
+                            <strong>Fraud Analysis</strong><br>
+                            <span style="font-size: 0.85rem; color: var(--text-muted);" id="tlFraudText">Scoring completed</span>
+                        </div>
+                        <div class="timeline-item" id="tlDecision">
+                            <strong>Routing Decision Generated</strong><br>
+                            <span style="font-size: 0.85rem; color: var(--text-muted);" id="tlDecText">Decision finalized</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="actionButtons" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border); display: flex; gap: 15px;">
+                <button class="btn" style="background: var(--success); flex: 1; padding: 15px; font-size: 1.1rem;" onclick="overrideDecision('APPROVED')">Approve Override</button>
+                <button class="btn" style="background: var(--danger); flex: 1; padding: 15px; font-size: 1.1rem;" onclick="overrideDecision('REJECTED')">Reject Override</button>
+            </div>
+            <div id="actionSuccess" style="display: none; margin-top: 20px; text-align: center; color: var(--success); font-weight: bold; font-size: 1.1rem;">
+                Invoice status successfully updated.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function handleDragOver(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        document.getElementById('uploadSection').classList.add('dragover');
+    }
+
+    function handleDragLeave(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        document.getElementById('uploadSection').classList.remove('dragover');
+    }
+
+    function handleDrop(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        document.getElementById('uploadSection').classList.remove('dragover');
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            processFile(e.dataTransfer.files[0]);
+        }
+    }
+
+    function handleFileSelect(e) {
+        if (e.target.files && e.target.files.length > 0) {
+            processFile(e.target.files[0]);
+        }
+    }
+
+    function resetUI() {
+        document.getElementById('uploadSection').style.display = 'block';
+        document.getElementById('docViewer').style.display = 'none';
+        document.getElementById('resultsPanel').style.display = 'none';
+        document.getElementById('resultsArea').style.display = 'none';
+        document.getElementById('actionButtons').style.display = 'flex';
+        document.getElementById('actionSuccess').style.display = 'none';
+        document.getElementById('fileInput').value = "";
+    }
+
+    async function overrideDecision(newStatus) {
+        const invNum = document.getElementById('hiddenInvoiceNumber').value;
+        if (!invNum) return;
+        
+        try {
+            await fetch(`/api/invoices/${invNum}/override`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
+            document.getElementById('actionButtons').style.display = 'none';
+            const msgBox = document.getElementById('actionSuccess');
+            msgBox.style.display = 'block';
+            msgBox.innerText = "Success: Invoice status permanently changed to " + newStatus;
+            
+            document.getElementById('decisionText').innerText = newStatus;
+            document.getElementById('decisionText').style.color = newStatus === 'APPROVED' ? 'var(--success)' : 'var(--danger)';
+        } catch (err) {
+            alert('Override failed.');
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const invId = urlParams.get('id');
+        if (invId) {
+            await loadExistingInvoice(invId);
+        }
+    });
+
+    async function loadExistingInvoice(invId) {
+        document.getElementById('uploadSection').style.display = 'none';
+        document.getElementById('loading').style.display = 'block';
+        
+        try {
+            const res = await fetch(`/api/invoices/${invId}`);
+            if (!res.ok) throw new Error("Invoice not found");
+            const dbData = await res.json();
+            
+            // Reconstruct data structure identical to what upload returns
+            const data = {
+                extraction: JSON.parse(dbData.extracted_data),
+                validation: JSON.parse(dbData.validation_results),
+                fraud: JSON.parse(dbData.fraud_results),
+                decision: { status: dbData.status, reason: "Loaded from historical records." }
+            };
+            
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('resultsPanel').style.display = 'block';
+            document.getElementById('resultsArea').style.display = 'block';
+            document.getElementById('actionButtons').style.display = 'flex';
+            document.getElementById('actionSuccess').style.display = 'none';
+            
+            // File preview
+            document.getElementById('docViewer').style.display = 'flex';
+            if (dbData.file_name && (dbData.file_name.toLowerCase().endsWith('.png') || dbData.file_name.toLowerCase().endsWith('.jpg') || dbData.file_name.toLowerCase().endsWith('.jpeg'))) {
+                document.getElementById('previewImg').src = `/uploads/${dbData.file_name}`;
+                document.getElementById('previewLink').href = `/uploads/${dbData.file_name}`;
+            } else if (dbData.file_name) {
+                document.getElementById('previewImg').src = 'https://upload.wikimedia.org/wikipedia/commons/8/87/PDF_file_icon.svg';
+                document.getElementById('previewLink').href = `/uploads/${dbData.file_name}`;
+            } else {
+                document.getElementById('docViewer').style.display = 'none';
+            }
+
+            populateResultsUI(data);
+        } catch (err) {
+            alert('Failed to load invoice: ' + err.message);
+            resetUI();
+        }
+    }
+
+    async function processFile(file) {
+        if (!file) return;
+
+        // UI Reset
+        document.getElementById('uploadSection').style.display = 'none';
+        document.getElementById('resultsPanel').style.display = 'none';
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('docViewer').style.display = 'flex';
+
+        const fileUrl = URL.createObjectURL(file);
+        document.getElementById('previewLink').href = fileUrl;
+
+        if (file.type.startsWith('image/')) {
+            document.getElementById('previewImg').src = fileUrl;
+        } else {
+            document.getElementById('previewImg').src = 'https://upload.wikimedia.org/wikipedia/commons/8/87/PDF_file_icon.svg';
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await fetch('/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('resultsPanel').style.display = 'block';
+            document.getElementById('resultsArea').style.display = 'block';
+            
+            document.getElementById('actionButtons').style.display = 'flex';
+            document.getElementById('actionSuccess').style.display = 'none';
+
+            populateResultsUI(data);
+
+        } catch (err) {
+            alert('Upload failed: ' + err.message);
+            resetUI();
+        }
+    }
+
+    function populateResultsUI(data) {
+        // Populate Extracted Data
+        document.getElementById('extVendor').innerText = data.extraction.vendor_name || 'Unknown';
+        document.getElementById('extInv').innerText = data.extraction.invoice_number || 'Unknown';
+        document.getElementById('hiddenInvoiceNumber').value = data.extraction.invoice_number;
+        document.getElementById('extInvDate').innerText = data.extraction.invoice_date || 'Not Found';
+        document.getElementById('extDueDate').innerText = data.extraction.due_date || 'Not Found';
+        document.getElementById('extAmt').innerText = `${data.extraction.currency || ''} ${data.extraction.gross_amount || 0}`;
+
+        // Populate Confidence
+        const conf = data.extraction.confidence_score || 0;
+        document.getElementById('confText').innerText = conf + '%';
+        document.getElementById('confFill').style.width = conf + '%';
+        document.getElementById('confFill').style.background = conf > 85 ? 'var(--success)' : (conf > 50 ? 'var(--warning)' : 'var(--danger)');
+
+        // Populate Validation & Fraud
+        document.getElementById('fScore').innerText = data.fraud.score;
+        document.getElementById('vStatus').innerText = data.validation.status;
+        
+        let discHtml = data.validation.discrepancies.join('<br>');
+        if (data.fraud.is_duplicate) {
+            discHtml += '<br><strong style="color: var(--danger);">*DUPLICATE INVOICE DETECTED*</strong>';
+        }
+        document.getElementById('valDiscrepancies').innerHTML = discHtml;
+
+        // Populate Decision
+        const decText = document.getElementById('decisionText');
+        decText.innerText = data.decision.status;
+        if (data.decision.status === 'READY_FOR_PAYMENT') decText.style.color = 'var(--success)';
+        if (data.decision.status === 'PROCUREMENT_REVIEW') decText.style.color = 'var(--warning)';
+        if (data.decision.status === 'MANDATORY HUMAN REVIEW' || data.decision.status === 'REJECTED') decText.style.color = 'var(--danger)';
+
+        document.getElementById('decisionReason').innerHTML = data.decision.reason;
+
+        // Update Risk Badge
+        const badge = document.getElementById('riskBadge');
+        badge.innerText = data.fraud.risk_level + ' Risk';
+        badge.className = 'badge';
+        if (data.fraud.risk_level === 'LOW') badge.classList.add('badge-success');
+        if (data.fraud.risk_level === 'MEDIUM') badge.classList.add('badge-warning');
+        if (data.fraud.risk_level === 'HIGH' || data.fraud.risk_level === 'CRITICAL') badge.classList.add('badge-danger');
+
+        // Timeline colors
+        document.getElementById('tlValidation').className = 'timeline-item ' + (data.validation.status === 'Passed' ? 'success' : 'danger');
+        document.getElementById('tlValText').innerText = data.validation.status;
+        
+        document.getElementById('tlFraud').className = 'timeline-item ' + (data.fraud.risk_level === 'LOW' ? 'success' : 'warning');
+        document.getElementById('tlFraudText').innerText = "Risk: " + data.fraud.risk_level;
+        
+        document.getElementById('tlDecision').className = 'timeline-item ' + (data.decision.status.includes('REJECT') ? 'danger' : 'success');
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,83 @@
+{
+  "name": "01_Email_Ingestion_and_PDF_Filter",
+  "nodes": [
+    {
+      "parameters": {
+        "mailbox": "INBOX",
+        "format": "resolved",
+        "options": {
+          "customEmailConfig": "[\"UNSEEN\"]"
+        }
+      },
+      "name": "IMAP Email Trigger",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 1,
+      "position": [ 250, 300 ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.hasAttachment}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Check for Attachments",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [ 450, 300 ]
+    },
+    {
+      "parameters": {
+        "operation": "extract",
+        "destination": "={{$binary.attachment_0}}"
+      },
+      "name": "Extract PDF Attachment",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [ 650, 280 ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "baseId": "={{$env.AIRTABLE_BASE_ID}}",
+        "tableId": "={{$env.AIRTABLE_INVOICE_TABLE_ID}}",
+        "columns": {
+          "Status": "Pending",
+          "Sender Email": "={{$json.from.value[0].address}}",
+          "Received At": "={{$json.date}}"
+        }
+      },
+      "name": "Create Draft Invoice Record",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [ 850, 280 ]
+    },
+    {
+      "parameters": {
+        "workflowId": "02_ocr_extraction_llm_id"
+      },
+      "name": "Execute Next Workflow",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [ 1050, 280 ]
+    }
+  ],
+  "connections": {
+    "IMAP Email Trigger": {
+      "main": [ [ { "node": "Check for Attachments", "type": "main", "index": 0 } ] ]
+    },
+    "Check for Attachments": {
+      "main": [ [ { "node": "Extract PDF Attachment", "type": "main", "index": 0 } ] ]
+    },
+    "Extract PDF Attachment": {
+      "main": [ [ { "node": "Create Draft Invoice Record", "type": "main", "index": 0 } ] ]
+    },
+    "Create Draft Invoice Record": {
+      "main": [ [ { "node": "Execute Next Workflow", "type": "main", "index": 0 } ] ]
+    }
+  }
+}

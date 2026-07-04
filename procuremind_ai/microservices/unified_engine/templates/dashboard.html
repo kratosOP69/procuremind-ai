@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="panel">
+    <h2 style="margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Procurement Analytics</h2>
+    
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
+        <div class="card" style="text-align: center;">
+            <div style="font-size: 0.9rem; color: var(--text-muted); font-weight: bold; text-transform: uppercase;">Total Processed</div>
+            <div id="kpiTotal" style="font-size: 2.5rem; font-weight: bold; color: var(--text-main); margin-top: 10px;">0</div>
+        </div>
+        <div class="card" style="text-align: center;">
+            <div style="font-size: 0.9rem; color: var(--text-muted); font-weight: bold; text-transform: uppercase;">Straight-Through Paid</div>
+            <div id="kpiPaid" style="font-size: 2.5rem; font-weight: bold; color: var(--success); margin-top: 10px;">0</div>
+        </div>
+        <div class="card" style="text-align: center;">
+            <div style="font-size: 0.9rem; color: var(--text-muted); font-weight: bold; text-transform: uppercase;">Review Required</div>
+            <div id="kpiReview" style="font-size: 2.5rem; font-weight: bold; color: var(--warning); margin-top: 10px;">0</div>
+        </div>
+        <div class="card" style="text-align: center;">
+            <div style="font-size: 0.9rem; color: var(--text-muted); font-weight: bold; text-transform: uppercase;">Fraud Rejections</div>
+            <div id="kpiRejected" style="font-size: 2.5rem; font-weight: bold; color: var(--danger); margin-top: 10px;">0</div>
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px;">
+        <h2 style="margin: 0; font-size: 1.2rem;">Recent Invoice Ingestions</h2>
+        <input type="text" id="dashSearch" onkeyup="filterTable('dashSearch', 'invoiceTable')" placeholder="Search invoices, vendors..." style="padding: 8px; border: 1px solid var(--border); border-radius: 4px; width: 250px;">
+    </div>
+    <table id="invoiceTable">
+        <thead>
+            <tr>
+                <th>Invoice #</th>
+                <th>Vendor</th>
+                <th>PO Number</th>
+                <th>Amount</th>
+                <th>Date Processed</th>
+                <th>AI Decision Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Populated via JS -->
+        </tbody>
+    </table>
+</div>
+
+<script>
+    function filterTable(inputId, tableId) {
+        let input = document.getElementById(inputId);
+        let filter = input.value.toUpperCase();
+        let table = document.getElementById(tableId);
+        let tr = table.getElementsByTagName("tr");
+
+        for (let i = 1; i < tr.length; i++) {
+            let row = tr[i];
+            let textValue = row.textContent || row.innerText;
+            if (textValue.toUpperCase().indexOf(filter) > -1) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        }
+    }
+</script>
+
+<div id="deleteModal" class="modal-overlay">
+    <div class="modal" style="max-width: 400px; text-align: center; padding: 20px;">
+        <h3 style="margin-top: 0; color: var(--danger);">Confirm Deletion</h3>
+        <p id="deleteModalText">Are you sure you want to delete this invoice?</p>
+        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+            <button class="btn" style="background: var(--border); color: var(--text-main);" onclick="closeDeleteModal()">Cancel</button>
+            <button class="btn btn-danger" id="confirmDeleteBtn">Delete Permanently</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", async () => {
+        // Load Analytics
+        const statRes = await fetch('/api/analytics');
+        const stats = await statRes.json();
+        document.getElementById('kpiTotal').innerText = stats.total;
+        document.getElementById('kpiPaid').innerText = stats.approved;
+        document.getElementById('kpiReview').innerText = stats.review;
+        document.getElementById('kpiRejected').innerText = stats.rejected;
+
+        // Load Invoices
+        const res = await fetch('/api/invoices');
+        const invoices = await res.json();
+        const tbody = document.querySelector('#invoiceTable tbody');
+        
+        if (invoices.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color: #9CA3AF; padding: 20px;">No invoices processed yet.</td></tr>';
+            return;
+        }
+
+        invoices.forEach(inv => {
+            const dateStr = new Date(inv.created_at).toLocaleString();
+            let statusColor = "var(--success)";
+            if(inv.status.includes("REVIEW")) statusColor = "var(--warning)";
+            if(inv.status.includes("REJECT")) statusColor = "var(--danger)";
+            
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${inv.invoice_number}</strong></td>
+                <td>${inv.vendor_id}</td>
+                <td>${inv.po_number || 'N/A'}</td>
+                <td>${inv.currency} ${inv.gross_amount}</td>
+                <td>${dateStr}</td>
+                <td><span class="badge" style="background: ${statusColor}20; color: ${statusColor}; font-weight: bold;">${inv.status}</span></td>
+                <td>
+                    <a href="/invoice_viewer?id=${inv.invoice_number}" style="color: var(--primary); font-weight: 500; text-decoration: none; margin-right: 15px;">View details &rarr;</a>
+                    <a href="javascript:void(0)" onclick="openDeleteModal('${inv.invoice_number}')" style="color: var(--danger); font-weight: 500; text-decoration: none;">Delete</a>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    });
+
+    let invoiceToDelete = null;
+
+    function openDeleteModal(invId) {
+        invoiceToDelete = invId;
+        document.getElementById('deleteModalText').innerText = `Are you sure you want to permanently delete Invoice ${invId}?`;
+        document.getElementById('deleteModal').style.display = 'flex';
+    }
+
+    function closeDeleteModal() {
+        invoiceToDelete = null;
+        document.getElementById('deleteModal').style.display = 'none';
+    }
+
+    document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+        if (!invoiceToDelete) return;
+        try {
+            await fetch(`/api/invoices/${invoiceToDelete}`, { method: 'DELETE' });
+            location.reload();
+        } catch (err) {
+            alert("Failed to delete invoice.");
+        }
+    });
+</script>
+{% endblock %}

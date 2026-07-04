@@ -1,0 +1,82 @@
+openapi: 3.0.3
+info:
+  title: ProcureMind AI Microservices API
+  description: Internal APIs for Validation and Fraud engines.
+  version: "1.0.0"
+servers:
+  - url: http://validation-engine:8000
+    description: Validation Engine Server
+  - url: http://fraud-engine:8001
+    description: Fraud Engine Server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
+
+paths:
+  /validate:
+    post:
+      summary: Validate Invoice against PO
+      description: Performs 3-way matching and tolerance checks.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                invoice_data:
+                  type: object
+                po_data:
+                  type: object
+      responses:
+        '200':
+          description: Validation Results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vendor_match: { type: boolean }
+                  po_match: { type: boolean }
+                  currency_match: { type: boolean }
+                  amount_match: { type: boolean }
+                  validation_status: { type: string, enum: [Passed, Warning, Failed] }
+                  discrepancies:
+                    type: array
+                    items: { type: string }
+
+  /score:
+    post:
+      summary: Score Invoice for Fraud
+      description: Analyzes vendor master data and invoice details.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                invoice_data:
+                  type: object
+                vendor_data:
+                  type: object
+      responses:
+        '200':
+          description: Fraud Score Results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fraud_score: { type: integer }
+                  risk_level: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+                  fraud_indicators:
+                    type: array
+                    items: { type: string }

@@ -1,0 +1,80 @@
+{
+  "name": "02_OCR_and_LLM_Extraction",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [ 250, 300 ]
+    },
+    {
+      "parameters": {
+        "operation": "analyzeDocument",
+        "documentId": "={{$json.attachment_data}}"
+      },
+      "name": "AWS Textract OCR",
+      "type": "n8n-nodes-base.awsTextract",
+      "typeVersion": 1,
+      "position": [ 450, 300 ]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are an enterprise AI extraction agent. Extract structured JSON from this invoice text: {{$json.textract_output}}"
+            }
+          ]
+        },
+        "responseFormat": "json_object"
+      },
+      "name": "OpenAI Extraction Agent",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [ 650, 300 ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "baseId": "={{$env.AIRTABLE_BASE_ID}}",
+        "tableId": "={{$env.AIRTABLE_INVOICE_TABLE_ID}}",
+        "recordId": "={{$json.airtable_record_id}}",
+        "columns": {
+          "Invoice Number": "={{$json.extracted.invoice_number}}",
+          "Vendor Name": "={{$json.extracted.vendor_name}}",
+          "Gross Amount": "={{$json.extracted.gross_amount}}",
+          "Line Items JSON": "={{JSON.stringify($json.extracted.line_items)}}"
+        }
+      },
+      "name": "Update Airtable Record",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [ 850, 300 ]
+    },
+    {
+      "parameters": {
+        "workflowId": "03_validation_approval_id"
+      },
+      "name": "Execute Next Workflow",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [ 1050, 300 ]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [ [ { "node": "AWS Textract OCR", "type": "main", "index": 0 } ] ]
+    },
+    "AWS Textract OCR": {
+      "main": [ [ { "node": "OpenAI Extraction Agent", "type": "main", "index": 0 } ] ]
+    },
+    "OpenAI Extraction Agent": {
+      "main": [ [ { "node": "Update Airtable Record", "type": "main", "index": 0 } ] ]
+    },
+    "Update Airtable Record": {
+      "main": [ [ { "node": "Execute Next Workflow", "type": "main", "index": 0 } ] ]
+    }
+  }
+}

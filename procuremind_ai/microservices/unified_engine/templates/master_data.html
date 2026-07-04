@@ -1,0 +1,461 @@
+{% extends "base.html" %}
+
+{% block head %}
+<style>
+    /* Page Specific Styles */
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9rem; }
+    .form-group input, .form-group select {
+        width: 100%; padding: 8px; border: 1px solid var(--border);
+        border-radius: 4px; box-sizing: border-box; font-family: inherit;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 style="margin-top: 0;">Master Data Management</h1>
+<p style="color: var(--text-muted);">Manage Vendors and Purchase Orders locally. This replicates data from external ERP/Airtable integrations.</p>
+
+<div class="panel">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2 style="margin: 0;">Vendors</h2>
+        <div style="display: flex; gap: 10px;">
+            <input type="text" id="vendorSearch" onkeyup="filterTable('vendorSearch', 'vendorTable')" placeholder="Search vendors..." style="padding: 8px; border: 1px solid var(--border); border-radius: 4px; width: 200px;">
+            <button class="btn btn-outline" onclick="openVendorModal()">+ Add Vendor</button>
+        </div>
+    </div>
+    <table id="vendorTable">
+        <thead>
+            <tr>
+                <th>Vendor ID</th>
+                <th>Name</th>
+                <th>Risk Level</th>
+                <th>Country</th>
+                <th>Payment Terms</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Populated via JS -->
+        </tbody>
+    </table>
+</div>
+
+<div class="panel">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2 style="margin: 0;">Purchase Orders (PO)</h2>
+        <div style="display: flex; gap: 10px;">
+            <input type="text" id="poSearch" onkeyup="filterTable('poSearch', 'poTable')" placeholder="Search POs..." style="padding: 8px; border: 1px solid var(--border); border-radius: 4px; width: 200px;">
+            <button class="btn btn-outline" onclick="openPOModal()">+ Add PO</button>
+        </div>
+    </div>
+    <table id="poTable">
+        <thead>
+            <tr>
+                <th>PO Number</th>
+                <th>Vendor</th>
+                <th>Total Amount</th>
+                <th>Date Issued</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Populated via JS -->
+        </tbody>
+    </table>
+</div>
+
+<!-- VENDOR MODAL -->
+<div id="vendorModal" class="modal-overlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="vendorModalTitle">Add Vendor</h3>
+            <div class="close-btn" onclick="closeModal('vendorModal')">&times;</div>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="v_original_id">
+            <div class="form-group">
+                <label>Vendor ID</label>
+                <input type="text" id="v_id" placeholder="e.g. V-100">
+            </div>
+            <div class="form-group">
+                <label>Vendor Name</label>
+                <input type="text" id="v_name" placeholder="e.g. Stark Industries">
+            </div>
+            <div class="form-group">
+                <label>Country</label>
+                <input type="text" id="v_country" placeholder="e.g. US" value="US">
+            </div>
+            <div class="form-group">
+                <label>Risk Level</label>
+                <select id="v_risk">
+                    <option value="LOW">Low</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HIGH">High</option>
+                    <option value="CRITICAL">Critical</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <select id="v_status">
+                    <option value="1">Active</option>
+                    <option value="0">Inactive</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('vendorModal')">Cancel</button>
+            <button class="btn" onclick="saveVendor()">Save Vendor</button>
+        </div>
+    </div>
+</div>
+
+<!-- PO MODAL -->
+<div id="poModal" class="modal-overlay">
+    <div class="modal" style="width: 700px;">
+        <div class="modal-header">
+            <h3 id="poModalTitle">Add Purchase Order</h3>
+            <div class="close-btn" onclick="closeModal('poModal')">&times;</div>
+        </div>
+        <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+            <input type="hidden" id="p_original_id">
+            
+            <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                <div class="form-group" style="flex: 1; margin: 0;">
+                    <label>PO Number</label>
+                    <input type="text" id="p_number" placeholder="e.g. PO-123">
+                </div>
+                <div class="form-group" style="flex: 1; margin: 0;">
+                    <label>Vendor ID</label>
+                    <input type="text" id="p_vendor_id" placeholder="e.g. V-100">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                <div class="form-group" style="flex: 1; margin: 0;">
+                    <label>Date Issued</label>
+                    <input type="datetime-local" id="p_date">
+                </div>
+                <div class="form-group" style="flex: 1; margin: 0;">
+                    <label>Currency</label>
+                    <input type="text" id="p_currency" value="USD">
+                </div>
+                <div class="form-group" style="flex: 1; margin: 0;">
+                    <label>Status</label>
+                    <select id="p_status">
+                        <option value="Approved">Approved</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Closed">Closed</option>
+                    </select>
+                </div>
+            </div>
+
+            <hr style="border-top: 1px solid var(--border); margin: 20px 0;">
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <label style="font-weight: 600; font-size: 1rem; margin: 0;">Line Items</label>
+                <button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.8rem;" onclick="addPOLineItem()">+ Add Item</button>
+            </div>
+            
+            <table id="poLineItemsTable" style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+                <thead>
+                    <tr style="background: #F3F4F6; text-align: left; font-size: 0.85rem;">
+                        <th style="padding: 8px; border: 1px solid var(--border);">Description</th>
+                        <th style="padding: 8px; border: 1px solid var(--border); width: 80px;">Qty</th>
+                        <th style="padding: 8px; border: 1px solid var(--border); width: 100px;">Price</th>
+                        <th style="padding: 8px; border: 1px solid var(--border); width: 100px;">Total</th>
+                        <th style="padding: 8px; border: 1px solid var(--border); width: 40px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="poLineItemsBody">
+                    <!-- Line items generated via JS -->
+                </tbody>
+            </table>
+            
+            <div style="text-align: right; font-size: 1.1rem;">
+                <strong>Grand Total: </strong><span id="p_grand_total">0.00</span>
+            </div>
+            <input type="hidden" id="p_amount" value="0">
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('poModal')">Cancel</button>
+            <button class="btn" onclick="savePO()">Save PO</button>
+        </div>
+    </div>
+</div>
+
+<!-- DELETE CONFIRMATION MODAL -->
+<div id="deleteModal" class="modal-overlay">
+    <div class="modal" style="width: 350px;">
+        <div class="modal-header">
+            <h3>Confirm Deletion</h3>
+            <div class="close-btn" onclick="closeModal('deleteModal')">&times;</div>
+        </div>
+        <div class="modal-body">
+            <p id="deleteMessage">Are you sure you want to delete this record?</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('deleteModal')">Cancel</button>
+            <button class="btn" style="background: var(--danger);" id="confirmDeleteBtn">Delete</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function filterTable(inputId, tableId) {
+        let input = document.getElementById(inputId);
+        let filter = input.value.toUpperCase();
+        let table = document.getElementById(tableId);
+        let tr = table.getElementsByTagName("tr");
+
+        for (let i = 1; i < tr.length; i++) {
+            let row = tr[i];
+            let textValue = row.textContent || row.innerText;
+            if (textValue.toUpperCase().indexOf(filter) > -1) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        }
+    }
+
+    let globalVendors = [];
+    let globalPOs = [];
+    
+    document.addEventListener("DOMContentLoaded", () => {
+        loadVendors();
+        loadPOs();
+    });
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+    function showModal(modalId) {
+        document.getElementById(modalId).style.display = 'flex';
+    }
+
+    // --- VENDORS ---
+    async function loadVendors() {
+        const res = await fetch('/api/vendors');
+        globalVendors = await res.json();
+        const tbody = document.querySelector('#vendorTable tbody');
+        tbody.innerHTML = '';
+        
+        globalVendors.forEach(v => {
+            let statusBadge = v.is_active ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-danger">Inactive</span>';
+            let riskBadge = v.risk_level === 'LOW' ? '<span class="badge badge-success">Low</span>' : 
+                            (v.risk_level === 'CRITICAL' ? '<span class="badge badge-danger">Critical</span>' : `<span class="badge badge-warning">${v.risk_level}</span>`);
+            
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${v.vendor_id}</strong></td>
+                <td>${v.vendor_name}</td>
+                <td>${riskBadge}</td>
+                <td>${v.country}</td>
+                <td>${v.payment_terms}</td>
+                <td>${statusBadge}</td>
+                <td>
+                    <a href="javascript:void(0)" onclick="openVendorModal('${v.vendor_id}')" style="color: var(--primary); margin-right: 10px;">Edit</a>
+                    <a href="javascript:void(0)" onclick="confirmDelete('vendor', '${v.vendor_id}')" style="color: var(--danger);">Delete</a>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function openVendorModal(id = null) {
+        if (id) {
+            document.getElementById('vendorModalTitle').innerText = 'Edit Vendor';
+            const v = globalVendors.find(x => x.vendor_id === id);
+            document.getElementById('v_original_id').value = v.vendor_id;
+            document.getElementById('v_id').value = v.vendor_id;
+            document.getElementById('v_id').disabled = true; // Prevent changing ID
+            document.getElementById('v_name').value = v.vendor_name;
+            document.getElementById('v_country').value = v.country;
+            document.getElementById('v_risk').value = v.risk_level;
+            document.getElementById('v_status').value = v.is_active ? '1' : '0';
+        } else {
+            document.getElementById('vendorModalTitle').innerText = 'Add Vendor';
+            document.getElementById('v_original_id').value = '';
+            document.getElementById('v_id').value = '';
+            document.getElementById('v_id').disabled = false;
+            document.getElementById('v_name').value = '';
+            document.getElementById('v_country').value = 'US';
+            document.getElementById('v_risk').value = 'LOW';
+            document.getElementById('v_status').value = '1';
+        }
+        showModal('vendorModal');
+    }
+
+    async function saveVendor() {
+        const id = document.getElementById('v_id').value;
+        if (!id) { alert('Vendor ID required'); return; }
+        
+        const data = {
+            vendor_id: id,
+            vendor_name: document.getElementById('v_name').value,
+            country: document.getElementById('v_country').value,
+            risk_level: document.getElementById('v_risk').value,
+            is_active: parseInt(document.getElementById('v_status').value)
+        };
+        
+        await fetch('/api/vendors', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+        });
+        
+        closeModal('vendorModal');
+        loadVendors();
+    }
+
+    // --- POS ---
+    async function loadPOs() {
+        const res = await fetch('/api/pos');
+        globalPOs = await res.json();
+        const tbody = document.querySelector('#poTable tbody');
+        tbody.innerHTML = '';
+        
+        globalPOs.forEach(p => {
+            const dateStr = p.created_at ? new Date(p.created_at).toLocaleString() : 'N/A';
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${p.po_number}</strong></td>
+                <td>${p.vendor_name || p.vendor_id}</td>
+                <td>${p.currency} ${p.total_amount}</td>
+                <td>${dateStr}</td>
+                <td><span class="badge badge-success">${p.status}</span></td>
+                <td>
+                    <a href="javascript:void(0)" onclick="openPOModal('${p.po_number}')" style="color: var(--primary); margin-right: 10px;">Edit</a>
+                    <a href="javascript:void(0)" onclick="confirmDelete('po', '${p.po_number}')" style="color: var(--danger);">Delete</a>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function calculatePOTotal() {
+        let total = 0;
+        document.querySelectorAll('.po-line-item').forEach(row => {
+            const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+            const price = parseFloat(row.querySelector('.item-price').value) || 0;
+            const rowTotal = qty * price;
+            row.querySelector('.item-total').innerText = rowTotal.toFixed(2);
+            total += rowTotal;
+        });
+        document.getElementById('p_grand_total').innerText = total.toFixed(2);
+        document.getElementById('p_amount').value = total;
+    }
+
+    function addPOLineItem(desc = '', qty = 1, price = 0) {
+        const tbody = document.getElementById('poLineItemsBody');
+        const tr = document.createElement('tr');
+        tr.className = 'po-line-item';
+        tr.innerHTML = `
+            <td style="padding: 5px; border: 1px solid var(--border);"><input type="text" class="item-desc" style="width: 100%; border: none; padding: 5px;" value="${desc}" placeholder="Item description"></td>
+            <td style="padding: 5px; border: 1px solid var(--border);"><input type="number" class="item-qty" style="width: 100%; border: none; padding: 5px;" value="${qty}" oninput="calculatePOTotal()"></td>
+            <td style="padding: 5px; border: 1px solid var(--border);"><input type="number" class="item-price" style="width: 100%; border: none; padding: 5px;" value="${price}" oninput="calculatePOTotal()"></td>
+            <td style="padding: 5px; border: 1px solid var(--border); background: #F8FAFC;"><span class="item-total">0.00</span></td>
+            <td style="padding: 5px; border: 1px solid var(--border); text-align: center;"><a href="javascript:void(0)" onclick="this.closest('tr').remove(); calculatePOTotal();" style="color: var(--danger); font-size: 1.2rem; text-decoration: none;">&times;</a></td>
+        `;
+        tbody.appendChild(tr);
+        calculatePOTotal();
+    }
+
+    function formatDateTimeForInput(isoString) {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    }
+
+    function openPOModal(id = null) {
+        document.getElementById('poLineItemsBody').innerHTML = ''; // Clear items
+        
+        if (id) {
+            document.getElementById('poModalTitle').innerText = 'Edit PO';
+            const p = globalPOs.find(x => x.po_number === id);
+            document.getElementById('p_original_id').value = p.po_number;
+            document.getElementById('p_number').value = p.po_number;
+            document.getElementById('p_number').disabled = true;
+            document.getElementById('p_vendor_id').value = p.vendor_id;
+            document.getElementById('p_date').value = formatDateTimeForInput(p.created_at);
+            document.getElementById('p_amount').value = p.total_amount;
+            document.getElementById('p_currency').value = p.currency;
+            document.getElementById('p_status').value = p.status;
+            
+            if (p.line_items && p.line_items.length > 0) {
+                p.line_items.forEach(item => addPOLineItem(item.description, item.quantity, item.unit_price));
+            } else {
+                addPOLineItem('General PO Amount', 1, p.total_amount); // Fallback
+            }
+        } else {
+            document.getElementById('poModalTitle').innerText = 'Add PO';
+            document.getElementById('p_original_id').value = '';
+            document.getElementById('p_number').value = '';
+            document.getElementById('p_number').disabled = false;
+            document.getElementById('p_vendor_id').value = '';
+            document.getElementById('p_date').value = formatDateTimeForInput(new Date().toISOString());
+            document.getElementById('p_amount').value = 0;
+            document.getElementById('p_currency').value = 'USD';
+            document.getElementById('p_status').value = 'Approved';
+            addPOLineItem('', 1, 0); // Empty row
+        }
+        showModal('poModal');
+    }
+
+    async function savePO() {
+        const id = document.getElementById('p_number').value;
+        if (!id) { alert('PO Number required'); return; }
+        
+        const lineItems = [];
+        document.querySelectorAll('.po-line-item').forEach(row => {
+            const desc = row.querySelector('.item-desc').value;
+            const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+            const price = parseFloat(row.querySelector('.item-price').value) || 0;
+            if (desc) {
+                lineItems.push({ description: desc, quantity: qty, unit_price: price, total: qty * price });
+            }
+        });
+        
+        const data = {
+            po_number: id,
+            vendor_id: document.getElementById('p_vendor_id').value,
+            total_amount: parseFloat(document.getElementById('p_amount').value) || 0,
+            currency: document.getElementById('p_currency').value,
+            status: document.getElementById('p_status').value,
+            created_at: document.getElementById('p_date').value ? new Date(document.getElementById('p_date').value).toISOString() : new Date().toISOString(),
+            line_items: lineItems
+        };
+        
+        await fetch('/api/pos', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+        });
+        
+        closeModal('poModal');
+        loadPOs();
+    }
+
+    // --- DELETE LOGIC ---
+    let pendingDeleteType = '';
+    let pendingDeleteId = '';
+    
+    function confirmDelete(type, id) {
+        pendingDeleteType = type;
+        pendingDeleteId = id;
+        document.getElementById('deleteMessage').innerText = `Are you sure you want to delete ${type.toUpperCase()} ${id}?`;
+        showModal('deleteModal');
+    }
+    
+    document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+        if (pendingDeleteType === 'vendor') {
+            await fetch('/api/vendors/' + pendingDeleteId, { method: 'DELETE' });
+            loadVendors();
+        } else if (pendingDeleteType === 'po') {
+            await fetch('/api/pos/' + pendingDeleteId, { method: 'DELETE' });
+            loadPOs();
+        }
+        closeModal('deleteModal');
+    });
+
+</script>
+{% endblock %}

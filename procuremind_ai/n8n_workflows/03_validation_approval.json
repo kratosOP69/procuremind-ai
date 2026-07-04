@@ -1,0 +1,117 @@
+{
+  "name": "03_Validation_and_Approval_Routing",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [ 250, 300 ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.VALIDATION_ENGINE_URL}}/validate",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "invoice_data", "value": "={{$json.invoice}}" },
+            { "name": "po_data", "value": "={{$json.purchase_order}}" }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer {{$env.MICROSERVICE_API_KEY}}" }
+          ]
+        }
+      },
+      "name": "Call Validation Engine",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [ 450, 300 ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.FRAUD_ENGINE_URL}}/score",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "invoice_data", "value": "={{$json.invoice}}" },
+            { "name": "vendor_data", "value": "={{$json.vendor}}" }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer {{$env.MICROSERVICE_API_KEY}}" }
+          ]
+        }
+      },
+      "name": "Call Fraud Engine",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [ 650, 300 ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.decision}}",
+              "value2": "READY_FOR_PAYMENT"
+            }
+          ]
+        }
+      },
+      "name": "Decision Router",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [ 850, 300 ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "baseId": "={{$env.AIRTABLE_BASE_ID}}",
+        "tableId": "={{$env.AIRTABLE_INVOICE_TABLE_ID}}",
+        "recordId": "={{$json.airtable_record_id}}",
+        "columns": {
+          "Status": "Approved"
+        }
+      },
+      "name": "Auto Approve (Airtable)",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [ 1050, 200 ]
+    },
+    {
+      "parameters": {
+        "channel": "={{$env.SLACK_APPROVAL_CHANNEL_ID}}",
+        "text": "Invoice requires manual review. Fraud Score: {{$json.fraud_score}}. Validation: {{$json.validation_status}}.",
+        "attachments": [
+          { "title": "Review in Airtable", "title_link": "https://airtable.com/{{$env.AIRTABLE_BASE_ID}}/{{$env.AIRTABLE_INVOICE_TABLE_ID}}/{{$json.airtable_record_id}}" }
+        ]
+      },
+      "name": "Send Slack Approval Request",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [ 1050, 400 ]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [ [ { "node": "Call Validation Engine", "type": "main", "index": 0 } ] ]
+    },
+    "Call Validation Engine": {
+      "main": [ [ { "node": "Call Fraud Engine", "type": "main", "index": 0 } ] ]
+    },
+    "Call Fraud Engine": {
+      "main": [ [ { "node": "Decision Router", "type": "main", "index": 0 } ] ]
+    },
+    "Decision Router": {
+      "main": [
+        [ { "node": "Auto Approve (Airtable)", "type": "main", "index": 0 } ],
+        [ { "node": "Send Slack Approval Request", "type": "main", "index": 0 } ]
+      ]
+    }
+  }
+}
