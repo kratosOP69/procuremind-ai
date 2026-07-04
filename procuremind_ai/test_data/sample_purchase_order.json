@@ -1,0 +1,23 @@
+{
+    "po_number": "PO-998877",
+    "vendor_id": "V-100",
+    "vendor_name": "Stark Industries",
+    "total_amount": 150000.00,
+    "currency": "USD",
+    "status": "Approved",
+    "created_at": "2026-07-01T10:00:00Z",
+    "line_items": [
+        {
+            "description": "Arc Reactor Core",
+            "quantity": 1,
+            "unit_price": 100000.00,
+            "total": 100000.00
+        },
+        {
+            "description": "Titanium Alloy Plating",
+            "quantity": 50,
+            "unit_price": 1000.00,
+            "total": 50000.00
+        }
+    ]
+}

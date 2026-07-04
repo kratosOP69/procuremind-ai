@@ -1,0 +1,28 @@
+{
+    "invoice_number": "INV-2026-001",
+    "vendor_name": "Stark Industries",
+    "vendor_id": "V-100",
+    "po_number": "PO-998877",
+    "invoice_date": "2026-07-05",
+    "due_date": "2026-08-05",
+    "gross_amount": 155000.00,
+    "net_amount": 150000.00,
+    "tax_amount": 5000.00,
+    "currency": "USD",
+    "confidence_score": 98,
+    "extraction_warnings": [],
+    "line_items": [
+        {
+            "description": "Arc Reactor Core",
+            "quantity": 1.0,
+            "unit_price": 100000.00,
+            "total": 100000.00
+        },
+        {
+            "description": "Titanium Alloy Plating",
+            "quantity": 55.0,
+            "unit_price": 1000.00,
+            "total": 55000.00
+        }
+    ]
+}
