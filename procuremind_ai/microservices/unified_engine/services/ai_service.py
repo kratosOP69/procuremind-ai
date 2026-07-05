@@ -34,10 +34,10 @@ def extract_invoice_data(file_path):
             "invoice_date": "2026-07-01",
             "due_date": "2026-07-31",
             "currency": "USD",
-            "net_amount": 15000.0,
+            "net_amount": 200000.0,
             "tax_amount": 0.0,
-            "gross_amount": 15000.0,
-            "line_items": [{"description": "Arc Reactor Parts", "quantity": 10, "unit_price": 1500.0, "total": 15000.0}],
+            "gross_amount": 200000.0,
+            "line_items": [{"description": "Arc Reactor Core", "quantity": 1, "unit_price": 200000.0, "total": 200000.0}],
             "confidence_score": 96,
             "extraction_warnings": [f"Mock data used. Please add {provider.upper()} API key."]
         }
