@@ -30,14 +30,14 @@ def extract_invoice_data(file_path):
             "vendor_name": "Stark Industries",
             "vendor_id": "V-100",
             "po_number": "PO-123",
-            "invoice_number": "INV-999",
-            "invoice_date": "2026-07-01",
-            "due_date": "2026-07-31",
+            "invoice_number": "INV-PO123-001",
+            "invoice_date": "2026-07-04",
+            "due_date": "2026-08-04",
             "currency": "USD",
             "net_amount": 200000.0,
             "tax_amount": 0.0,
             "gross_amount": 200000.0,
-            "line_items": [{"description": "Arc Reactor Core", "quantity": 1, "unit_price": 200000.0, "total": 200000.0}],
+            "line_items": [{"description": "Water Bottles", "quantity": 200.0, "unit_price": 1000.0, "total": 200000.0}],
             "confidence_score": 96,
             "extraction_warnings": [f"Mock data used. Please add {provider.upper()} API key."]
         }
